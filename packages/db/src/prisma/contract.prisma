@@ -1,0 +1,215 @@
+// use prisma-8
+enum User_Role {
+  STUDENT
+  ALUMNI
+  ADMIN
+}
+model User {
+  id                          String  @id @default(uuid()) 
+  name                        String
+  email                       String @unique
+  password                    String
+  role                        User_Role
+  graduationYear              Int?
+  createdAt                   DateTime @default(now())
+  sentMessages                Message[] @relation("sentMessages")
+  receivedMessages            Message[] @relation("receivedMessages")
+  sentConnectionRequests      Connection[] @relation("sentConnection")
+  receivedConnectionRequests  Connection[] @relation("receivedConnection")
+  alumni                      Alumni?
+  groupMessages               GroupMessage[]
+  createdEvents               Event[]//events that user as admin or alumni has created 
+  groupMembership             GroupMember[]//groups that user as student has joined
+  eventMembership             Event_Member[]//events user as student may have registered for
+  applications                Application[]
+  createdGroups               Group[]//groups that user as admin or alumni has created
+  postedJobs                  Job[]
+  postedBlogs                 Blog[]
+  likedBlogs                  Like[]
+  comments                    Comment[]
+}
+enum Approval_Status {
+  PENDING
+  APPROVED
+  REJECTED
+}
+model PendingApproval {
+  id             String  @id @default(uuid())
+  name           String
+  email          String  @unique
+  passwordHash   String
+  role           User_Role
+  status         Approval_Status @default(PENDING)
+  graduationYear Int
+  company        String?
+  jobTitle       String?
+  bio            String?
+  linkedinUrl    String?
+  createdAt      DateTime @default(now())
+}
+
+model Alumni {
+  id                String @id @default(uuid())
+  userId            String @unique
+  graduationYear    Int
+  company           String
+  jobTitle          String
+  bio               String
+  linkedinUrl       String
+  user              User @relation(fields: [userId],references: [id], onDelete: Cascade)
+}
+enum Connection_Status {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+model Connection {
+  id                String @id @default(uuid())
+  senderId          String
+  receiverId        String
+  status            Connection_Status
+  createdAt         DateTime @default(now())
+  respondedAt       DateTime?
+  sender            User @relation("sentConnection",fields: [senderId],references: [id])
+  receiver          User @relation("receivedConnection",fields: [receiverId],references: [id])
+}
+
+model Message {
+  id               String @id @default(uuid())
+  senderId         String
+  receiverId       String
+  text             String
+  createdAt        DateTime @default(now())
+  sender           User @relation("sentMessages",fields:[senderId],references: [id])
+  receiver         User @relation("receivedMessages",fields: [receiverId],references: [id])
+}
+
+model Group {
+  id               String @id @default(uuid())
+  name             String
+  createdBy        String
+  createdAt        DateTime @default(now())
+  groupMessages    GroupMessage[]
+  groupMember      GroupMember[]
+  user             User @relation(fields: [createdBy],references: [id])
+}
+
+model GroupMember {
+  id               String @id @default(uuid())
+  groupId          String
+  userId           String
+  joinedAt         DateTime @default(now())
+  user             User @relation(fields: [userId],references: [id],onDelete: Cascade)
+  group            Group @relation(fields: [groupId],references: [id],onDelete: Cascade)
+  @@unique([groupId,userId])
+}
+
+model GroupMessage {
+  id               String @id @default(uuid())
+  groupId          String
+  userId           String
+  text             String
+  sentAt           DateTime @default(now())
+  group            Group @relation(fields: [groupId],references: [id],onDelete: Cascade)
+  user             User @relation(fields: [userId],references: [id],onDelete: Cascade)
+}
+
+enum EventType {
+  COLLEGE
+  ALUMNI
+}
+
+model Event {
+  id               String @id @default(uuid())
+  title            String
+  description      String
+  Link             String//url to register for event
+  time             DateTime//event start time
+  type             EventType
+  createdBy        String
+  createdAt        DateTime @default(now())
+  user             User@relation(fields: [createdBy],references: [id])
+  eventMembers     Event_Member[]
+}
+
+model Event_Member {
+  id               String @id @default(uuid())
+  eventId          String
+  userId           String 
+  registeredAt     DateTime @default(now())
+  user             User @relation(fields: [userId],references: [id],onDelete: Cascade)
+  event            Event @relation(fields: [eventId],references: [id],onDelete: Cascade)
+  @@unique([eventId,userId])
+}
+enum JobStatus {
+  OPEN
+  CLOSED
+}
+enum JobType {
+  PARTTIME
+  FULLTIME
+}
+model Job {
+  id               String @id @default(uuid())
+  company          String
+  postedBy         String
+  deadline         DateTime
+  link             String//url to apply to this job
+  description      String
+  type             JobType
+  location         String
+  stipend          String
+  status           JobStatus//is it still open to apply or closed(deadline passed)
+  postedAt         DateTime @default(now())
+  user             User @relation(fields: [postedBy],references: [id])
+  applications     Application[]
+}
+
+model Blog{
+  id               String @id @default(uuid())
+  title            String
+  description      String
+  postedBy         String
+  postedAt         DateTime @default(now())
+  user             User@relation(fields: [postedBy],references:[id])
+  likes            Like[]
+  comments         Comment[]
+}
+
+model Comment{
+  id               String @id @default(uuid())
+  text             String
+  commentedAt      DateTime @default(now())
+  userId           String
+  blogId           String
+  user             User@relation(fields: [userId],references: [id],onDelete: Cascade)
+  blog             Blog@relation(fields: [blogId],references: [id],onDelete: Cascade)
+}
+
+model Like{
+  id               String @id @default(uuid())
+  blogId           String
+  userId           String
+  user             User@relation(fields: [userId],references: [id],onDelete: Cascade)
+  blog             Blog@relation(fields: [blogId],references: [id],onDelete: Cascade)
+  @@unique([userId,blogId])
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model Application {
+  id               String @id @default(uuid())
+  userId           String
+  jobId            String
+  status           ApplicationStatus
+  appliedAt        DateTime @default(now())
+  user             User @relation(fields: [userId],references: [id],onDelete: Cascade)
+  job              Job @relation(fields: [jobId],references: [id],onDelete: Cascade)
+  @@unique([userId,jobId])
+}
+//only user of type student in Application table
+//who can post jobs only alumni or admins also??
